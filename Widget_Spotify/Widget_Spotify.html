@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<style>
+  body {
+    margin: 0;
+    padding: 0;
+    background: transparent;
+    font-family: 'Segoe UI', Tahoma, sans-serif;
+    overflow: hidden;
+  }
+
+  .now-playing-widget {
+    display: flex;
+    align-items: center;
+    background: rgba(0,0,0,0.3);
+    padding: 5px 10px;
+    border-radius: 12px;
+    max-width: 600px;
+    font-size: 24px;
+  }
+
+  .album-art {
+    width: 50px;
+    height: 50px;
+    flex-shrink: 0;
+    border-radius: 6px;
+    margin-right: 10px;
+    background: #111;
+    background-size: cover;
+    background-position: center;
+  }
+
+  .track-info {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+  }
+
+  .title {
+    color: #3388FF;
+    text-shadow: 0 0 5px #3388FF, 0 0 10px #3388FF, 0 0 15px rgba(51,136,255,0.7);
+    font-weight: bold;
+  }
+
+  .artist {
+    color: #FFFFFF;
+    text-shadow: 0 0 5px #FFFFFF, 0 0 10px #FFFFFF, 0 0 15px rgba(255,255,255,0.7);
+    font-size: 20px;
+  }
+</style>
+</head>
+<body>
+  <div class="now-playing-widget">
+    <div class="album-art" id="albumArt"></div>
+    <div class="track-info">
+      <div class="title" id="trackTitle">Aucune musique</div>
+      <div class="artist" id="trackArtist"></div>
+    </div>
+  </div>
+
+  <script>
+    // --- CONFIGURATION --- //
+    const CLIENT_ID = '9ff1fa2a8a9a4e39995b7c0d0afa2b03'; // Remplace par ton Client ID Spotify
+    const REDIRECT_URI = 'https://TON_NOM_UTILISATEUR.github.io/spotify-overlay/overlay.html'; // Remplace par ton URL GitHub Pages
+    const SCOPES = 'user-read-currently-playing';
+    let accessToken = '';
+
+    // --- Authentification Spotify --- //
+    function login() {
+      const url = `https://accounts.spotify.com/authorize?client_id=${CLIENT_ID}&response_type=token&redirect_uri=${encodeURIComponent(REDIRECT_URI)}&scope=${encodeURIComponent(SCOPES)}`;
+      window.location = url;
+    }
+
+    // --- Récupérer le token depuis l’URL --- //
+    function getTokenFromUrl() {
+      const hash = window.location.hash;
+      if(hash) {
+        const params = new URLSearchParams(hash.replace('#','?'));
+        accessToken = params.get('access_token');
+      }
+    }
+
+    // --- Mettre à jour la musique en cours --- //
+    async function updateNowPlaying() {
+      if(!accessToken) return;
+
+      try {
+        const res = await fetch('https://api.spotify.com/v1/me/player/currently-playing', {
+          headers: { 'Authorization': 'Bearer ' + accessToken }
+        });
+
+        if(res.status === 204 || res.status === 401) {
+          document.getElementById('trackTitle').innerText = 'Aucune musique';
+          document.getElementById('trackArtist').innerText = '';
+          document.getElementById('albumArt').style.backgroundImage = '';
+          return;
+        }
+
+        const data = await res.json();
+        const track = data.item;
+        document.getElementById('trackTitle').innerText = track.name;
+        document.getElementById('trackArtist').innerText = track.artists.map(a => a.name).join(', ');
+        document.getElementById('albumArt').style.backgroundImage = `url('${track.album.images[0].url}')`;
+
+      } catch(e) {
+        console.error(e);
+      }
+    }
+
+    // --- Initialisation --- //
+    getTokenFromUrl();
+    if(!accessToken) login(); // redirection pour login si nécessaire
+    setInterval(updateNowPlaying, 2000);
+    updateNowPlaying();
+  </script>
+</body>
+</html>
